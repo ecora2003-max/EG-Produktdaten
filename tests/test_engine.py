@@ -234,6 +234,14 @@ class AliasTests(unittest.TestCase):
         self.assertEqual(out[0]["status"], "CONFIRMED_BY_USER")
         self.assertEqual(out[0]["egProductdaten"]["versionId"], "v1")
 
+    def test_stale_alias_when_both_versions_in_catalog(self):
+        ledger = p.resolve_alias_decision([], alias())
+        older = article(version="v1")
+        newer = article(version="v2")
+        out = p.find_candidates({"retailerId": "EDEKA", "rawText": "HAFERFL ZART 0,89"},
+                                [older, newer], ledger)
+        self.assertFalse(any(x["status"] == "CONFIRMED_BY_USER" for x in out))
+
     def test_stale_alias_version_no_spurious_match(self):
         ledger = p.resolve_alias_decision([], alias())
         changed = article(version="v2")

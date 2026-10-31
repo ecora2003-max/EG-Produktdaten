@@ -275,6 +275,11 @@ def find_candidates(query, catalog, aliases=()):
     matching_alias_versions = {h.get("versionId") for h in heads if h.get("action") != "REVOKE"}
     ambiguous_alias = len(matching_alias_versions) > 1
     catalog_rows = [_article(row) for row in catalog]
+    # Alias points to a concrete version. Only the current supplied version of
+    # a product can be reused automatically; older versions remain historical.
+    current_versions = {}
+    for row in catalog_rows:
+        current_versions.setdefault(row["id"], set()).add(row["versionId"])
     results = []
     for a in catalog_rows:
         evidence, conflicts, score = [], [], 0
@@ -331,6 +336,8 @@ def find_candidates(query, catalog, aliases=()):
             continue
         strong = "valid_gtin_exact" in evidence or "retailer_sku_exact" in evidence
         alias_confirmed = "user_confirmed_retailer_alias_version" in evidence
+        if alias_confirmed and len(current_versions.get(a["id"], set())) > 1 and a.get("currentVersionConfirmed") is not True:
+            conflicts.append("stale_or_unresolved_product_version")
         severe = bool(conflicts)
         if strong and not severe:
             level = "EXACT_SKU"
