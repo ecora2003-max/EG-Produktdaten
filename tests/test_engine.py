@@ -459,6 +459,14 @@ class ReceiptTests(unittest.TestCase):
         self.assertEqual(refund["lineKind"], "RETURN")
         self.assertEqual(refund["amountCents"], -299)
 
+    def test_unicode_minus_and_spaced_negative_price_not_positive(self):
+        for raw in ("MILCH −1,99", "MILCH –1,99", "MILCH - 1,99", "MILCH − 1,99"):
+            with self.subTest(raw=raw):
+                x = p.classify_receipt_line({"rawText": raw})
+                self.assertEqual(x["amountCents"], -199)
+                self.assertEqual(x["lineKind"], "UNKNOWN")
+                self.assertIn("negative_non_return_amount", x["egProductdaten"]["warnings"])
+
     def test_negative_amount_unknown_not_food(self):
         x = p.classify_receipt_line({"rawText": "MILCH", "lineKind": "FOOD", "amountCents": -120})
         self.assertEqual(x["lineKind"], "UNKNOWN")

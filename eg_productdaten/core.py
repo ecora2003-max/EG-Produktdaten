@@ -23,7 +23,7 @@ PRIVATE_LABELS = {
     "PENNY": {"NATURGUT", "PENNY"},
 }
 _PACK = re.compile(r"(?<!\w)(?:(\d+)\s*[x×]\s*)?(\d+(?:[.,]\d+)?)\s*(kg|ml|g|l)(?!\w)", re.I)
-_PRICE = re.compile(r"(?<![0-9.,])([+-]?\d+[,.]\d{2})\s*(?:€|EUR)?\s*(?:[A-D])?\s*$", re.I)
+_PRICE = re.compile(r"(?<![0-9.,])([+\-−–]?\d+[,.]\d{2})\s*(?:€|EUR)?\s*(?:[A-D])?\s*$", re.I)
 _TOKENS = re.compile(r"[a-z0-9äöüß]+", re.I)
 
 
@@ -239,7 +239,10 @@ def classify_receipt_line(line):
     else:
         found = _PRICE.search(raw)
         if found:
-            amount = int(found.group(1).replace(",", "").replace(".", ""))
+            token = found.group(1).replace("−", "-").replace("–", "-")
+            if token[0].isdigit() and raw[:found.start(1)].rstrip().endswith(("-", "−", "–")):
+                token = "-" + token
+            amount = int(token.replace(",", "").replace(".", ""))
         elif re.search(r"\b\d{2,}[A-Z]\s*$", raw):
             warnings.append("malformed_ocr_price")
     if amount is not None and amount < 0 and kind not in ("RETURN", "DISCOUNT"):
