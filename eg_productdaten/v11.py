@@ -79,6 +79,8 @@ def historical_purchase_v11(receipt, line, article, *, created_at, trace_id,
             payload["source"]["evidenceKind"] != "USER_CONFIRMED_RECEIPT") or (
             payload["source"]["dataQuality"] != "CONFIRMED"):
         raise InputError("Private historical price provenance mismatch")
+    if _at(created_at, "createdAt") < _at(payload["source"]["observedAt"], "observedAt"):
+        raise InputError("message creation precedes receipt confirmation")
     return {"message": _envelope("price.observation", payload, created_at,
                                  trace_id, usage_context), "reason": None}
 

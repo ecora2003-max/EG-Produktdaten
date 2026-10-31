@@ -497,6 +497,16 @@ class PriceTests(unittest.TestCase):
         self.assertEqual(obs["egProductdaten"]["purchaseAt"], receipt()["purchaseAt"])
         self.assertNotIn("validCurrentPrice", obs)
 
+    def test_reversed_purchase_or_line_never_qualifies_as_paid(self):
+        for altered_receipt, altered_line in [
+                (receipt(purchaseReversed=True), line()),
+                (receipt(), line(lineReversed=True))]:
+            with self.subTest(receipt=altered_receipt, line=altered_line):
+                result = p.to_historical_price_observation(
+                    altered_receipt, altered_line, article())
+                self.assertIsNone(result["observation"])
+                self.assertEqual(result["reason"], "REVERSED_PURCHASE_OR_LINE")
+
     def test_unconfirmed_purchase(self):
         x = p.to_historical_price_observation(receipt(purchaseConfirmed=False), line(), article())
         self.assertIsNone(x["observation"])

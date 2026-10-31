@@ -130,6 +130,20 @@ class V11AdapterTests(unittest.TestCase):
         self.assertIsNone(x["message"])
         self.assertEqual(x["reason"], "UNALLOCATED_DISCOUNT")
 
+    def test_envelope_timestamp_cannot_precede_confirmed_evidence(self):
+        with self.assertRaises(core.InputError):
+            v11.historical_purchase_v11(
+                receipt(), line(), article(),
+                created_at="2026-10-30T12:00:00+01:00",
+                trace_id="future-confirmed")
+
+    def test_reversal_does_not_become_historical_price(self):
+        result = v11.historical_purchase_v11(
+            receipt(purchaseReversed=True), line(), article(),
+            created_at=STAMP, trace_id="reversal")
+        self.assertIsNone(result["message"])
+        self.assertEqual(result["reason"], "REVERSED_PURCHASE_OR_LINE")
+
     def test_invalid_meta_timestamp_rejected(self):
         with self.assertRaises(core.InputError):
             v11.historical_purchase_v11(receipt(), line(), article(),

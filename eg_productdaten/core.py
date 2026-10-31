@@ -483,6 +483,10 @@ def to_historical_price_observation(receipt, line, article):
         raise InputError("receipt and line objects required")
     if receipt.get("purchaseConfirmed") is not True or line.get("confirmed") is not True:
         return fail("UNCONFIRMED_PURCHASE_OR_LINE")
+    # A reversal of the original purchase is not a new paid price. Codex must
+    # project the current transaction state, not just an old confirmation flag.
+    if receipt.get("purchaseReversed") is True or line.get("lineReversed") is True:
+        return fail("REVERSED_PURCHASE_OR_LINE")
     if line.get("productConfirmed") is not True:
         return fail("UNCONFIRMED_PRODUCT_LINK")
     if line.get("lineKind") != "FOOD":
