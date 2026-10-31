@@ -47,6 +47,7 @@ as_contract(messageType,payload,createdAt,traceId) setzt den 1.0.0-draft-Umschla
 - Ein explizites negatives OCR-Preissuffix wie `MILCH -1,99` bleibt **−199 Cents**, nicht +199. Bei negativem FOOD-Vorschlag wird die Kategorie auf UNKNOWN zurückgesetzt und eine Warnung erzeugt; RETOUR/Discount bleiben gesonderte Kategorien. Ohne Nutzerbestätigung keine Kauf- oder Preisbuchung.
 - Die Alias-Ledger-Projektion verwirft unbestätigte/ungültige historische Entscheidungen und verweigert doppelte `decisionId` oder eine `expectedPreviousId`-Referenz über Händler-/Rohtextgrenzen. Ambige Legacy-Branches werden nicht still aufgelöst.
 - `currentVersionConfirmed=true` muss aus der **aktuellen, versionierten App-Katalogprojektion** stammen. Nicht als pauschalen Default setzen, nicht aus OFF ableiten; bei fehlendem Nachweis bleibt eine frühere Aliasentscheidung AMBIGUOUS.
+- Aliasentscheidungen und Händler-SKUs können optional an `storeId` gebunden sein. Ein filialgebundener Alias gilt ausschließlich bei identischer bestätigter Filiale, nicht bei unbekannter Filiale oder anderem Markt. Kettenweite Aliase bleiben separat; mehrere gleichzeitig passende Ketten-/Filialentscheidungen können AMBIGUOUS werden. `storeId` ist stets zusammen mit `retailerId` zu interpretieren. Die Kotlin-Projektion muss dieselben Filter- und Konfliktregeln übernehmen.
 
 ### Bereits geladene Open-Food-Facts-Datensätze (kein zusätzlicher Netzwerkzugriff)
 
