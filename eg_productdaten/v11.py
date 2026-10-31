@@ -46,6 +46,8 @@ def _envelope(message_type, payload, created_at, trace_id, usage_context):
 
 def match_v11(query, catalog, aliases, *, created_at, trace_id, usage_context=PRIVATE):
     """Match suggestions, explicitly marked private/research; not purchases."""
+    # Validate the security context even if the candidate list is empty.
+    _envelope("product.match", {}, created_at, trace_id, usage_context)
     return [_envelope("product.match", payload, created_at, trace_id, usage_context)
             for payload in find_candidates(query, catalog, aliases)]
 
