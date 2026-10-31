@@ -1,0 +1,22 @@
+name: Product identity offline regression
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install contract validator
+        run: python -m pip install 'jsonschema>=4.20,<5'
+      - name: Run synthetic tests including architecture contract
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Compile Python source
+        run: python -m compileall -q eg_productdaten tests
