@@ -363,6 +363,27 @@ class AliasTests(unittest.TestCase):
         with self.assertRaises(p.ConflictError):
             p.resolve_alias_decision(ledger, alias(reason="changed evidence"))
 
+    def test_cross_merchant_supersession_rejected(self):
+        old = alias()
+        forged = alias("CORRECT", decisionId="A-2", retailerId="PENNY",
+                       expectedPreviousId="A-1")
+        with self.assertRaises(p.ConflictError):
+            p.find_candidates({"retailerId": "EDEKA", "rawText": old["rawText"]},
+                              [article()], [old, forged])
+
+    def test_duplicate_alias_decision_id_rejected(self):
+        old = alias()
+        forged = alias("CORRECT", decisionId="A-1", expectedPreviousId="A-1")
+        with self.assertRaises(p.ConflictError):
+            p.find_candidates({"retailerId": "EDEKA", "rawText": old["rawText"]},
+                              [article()], [old, forged])
+
+    def test_unconfirmed_historical_alias_not_trusted(self):
+        old = alias(confirmed=False)
+        with self.assertRaises(p.InputError):
+            p.find_candidates({"retailerId": "EDEKA", "rawText": old["rawText"]},
+                              [article()], [old])
+
     def test_ambiguous_legacy_ledger_blocks_silent_choice(self):
         a = alias()
         b = alias(decisionId="A-2", versionId="v2")
@@ -394,6 +415,15 @@ class ReceiptTests(unittest.TestCase):
             with self.subTest(raw=raw):
                 x = p.classify_receipt_line({"rawText": raw})
                 self.assertEqual((x["lineKind"], x["amountCents"]), (kind, cents))
+
+    def test_negative_receipt_price_is_not_silently_positive(self):
+        x = p.classify_receipt_line({"rawText": "MILCH -1,99"})
+        self.assertEqual(x["amountCents"], -199)
+        self.assertEqual(x["lineKind"], "UNKNOWN")
+        self.assertIn("negative_non_return_amount", x["egProductdaten"]["warnings"])
+        refund = p.classify_receipt_line({"rawText": "Retoure -2,99"})
+        self.assertEqual(refund["lineKind"], "RETURN")
+        self.assertEqual(refund["amountCents"], -299)
 
     def test_negative_amount_unknown_not_food(self):
         x = p.classify_receipt_line({"rawText": "MILCH", "lineKind": "FOOD", "amountCents": -120})

@@ -23,7 +23,7 @@ PRIVATE_LABELS = {
     "PENNY": {"NATURGUT", "PENNY"},
 }
 _PACK = re.compile(r"(?<!\w)(?:(\d+)\s*[x×]\s*)?(\d+(?:[.,]\d+)?)\s*(kg|ml|g|l)(?!\w)", re.I)
-_PRICE = re.compile(r"(?<![0-9.,])(\d+[,.]\d{2})\s*(?:€|EUR)?\s*(?:[A-D])?\s*$", re.I)
+_PRICE = re.compile(r"(?<![0-9.,])([+-]?\d+[,.]\d{2})\s*(?:€|EUR)?\s*(?:[A-D])?\s*$", re.I)
 _TOKENS = re.compile(r"[a-z0-9äöüß]+", re.I)
 
 
@@ -260,11 +260,32 @@ def classify_receipt_line(line):
 
 
 def _alias_heads(ledger):
+    """Validate a persisted decision history before deriving active heads.
+
+    A reference across merchant/text boundaries or a duplicated decision ID must
+    not suppress a valid alias or turn a stale choice into a confirmed match.
+    """
     groups = defaultdict(list)
+    ids = {}
     for event in ledger:
-        if not isinstance(event, dict):
-            raise InputError("invalid alias event")
-        groups[(_key(event.get("retailerId")), _text(event.get("rawText")))].append(event)
+        if not isinstance(event, dict) or event.get("confirmed") is not True or not event.get("reason") \
+                or not event.get("decisionId") or not event.get("retailerId") or not event.get("rawText") \
+                or event.get("action") not in ("CONFIRM", "CORRECT", "REVOKE"):
+            raise InputError("invalid or unconfirmed alias event")
+        _timestamp(event.get("decidedAt"), "alias.decidedAt")
+        if event["action"] != "REVOKE" and (not event.get("productId") or not event.get("versionId")):
+            raise InputError("alias event requires a concrete product version")
+        key = (_key(event["retailerId"]), _text(event["rawText"]))
+        if event["decisionId"] in ids:
+            raise ConflictError("duplicate alias decisionId in history")
+        ids[event["decisionId"]] = key
+        groups[key].append(event)
+    for events in groups.values():
+        for event in events:
+            parent = event.get("expectedPreviousId")
+            if parent is not None:
+                if parent == event["decisionId"] or (parent in ids and ids[parent] != ids[event["decisionId"]]):
+                    raise ConflictError("alias decision references itself or a different merchant/text")
     result = {}
     for key, events in groups.items():
         superseded = {e.get("expectedPreviousId") for e in events if e.get("expectedPreviousId")}
