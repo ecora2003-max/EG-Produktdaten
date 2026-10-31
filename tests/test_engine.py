@@ -16,6 +16,7 @@ def article(id="edeka-oats", version="v1", retailer="EDEKA", label="GUT & GÜNST
         "id": id, "versionId": version, "retailerId": retailer, "label": label,
         "gtin": barcode, "retailerArticleId": sku, "brandName": brand, "organic": organic,
         "foodTypeId": "fine-oats", "attributes": {"form": "fine"},
+        "currentVersionConfirmed": True,
         "quantity": {"amount": amount, "unit": "g", "basis": "NET",
                      "confirmed": True, "packageCount": package_count}
     }
@@ -237,10 +238,29 @@ class AliasTests(unittest.TestCase):
     def test_stale_alias_when_both_versions_in_catalog(self):
         ledger = p.resolve_alias_decision([], alias())
         older = article(version="v1")
+        older["currentVersionConfirmed"] = False
         newer = article(version="v2")
         out = p.find_candidates({"retailerId": "EDEKA", "rawText": "HAFERFL ZART 0,89"},
                                 [older, newer], ledger)
         self.assertFalse(any(x["status"] == "CONFIRMED_BY_USER" for x in out))
+
+    def test_alias_version_unverified_rejected_as_autoconfirmation(self):
+        ledger = p.resolve_alias_decision([], alias())
+        a = article()
+        del a["currentVersionConfirmed"]
+        out = p.find_candidates({"retailerId": "EDEKA", "rawText": "HAFERFL ZART 0,89"},
+                                [a], ledger)
+        self.assertEqual(out[0]["status"], "AMBIGUOUS")
+        self.assertIn("current_product_version_not_confirmed", out[0]["conflicts"])
+
+    def test_same_version_id_different_product_never_inherits_alias(self):
+        ledger = p.resolve_alias_decision([], alias())
+        rows = [article(), article("other-food", "v1", label="HAFERFL ZART", sku="EXTRA")]
+        out = p.find_candidates({"retailerId": "EDEKA", "rawText": "HAFERFL ZART 0,89"},
+                                rows, ledger)
+        confirmed = [x for x in out if "user_confirmed_retailer_alias_version" in x["evidence"]]
+        self.assertEqual(len(confirmed), 1)
+        self.assertEqual(confirmed[0]["egProductdaten"]["productId"], "edeka-oats")
 
     def test_stale_alias_version_no_spurious_match(self):
         ledger = p.resolve_alias_decision([], alias())

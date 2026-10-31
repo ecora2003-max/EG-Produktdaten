@@ -272,8 +272,9 @@ def find_candidates(query, catalog, aliases=()):
     hint = _pack(raw)
     bio_hint = bool(re.search(r"(?<!\w)bio(?!\w)|\bökologisch\b", original))
     heads = _alias_heads(aliases).get((merchant, _text(raw)), [])
-    matching_alias_versions = {h.get("versionId") for h in heads if h.get("action") != "REVOKE"}
-    ambiguous_alias = len(matching_alias_versions) > 1
+    matching_alias_pairs = {(h.get("productId"), h.get("versionId"))
+                            for h in heads if h.get("action") != "REVOKE"}
+    ambiguous_alias = len(matching_alias_pairs) > 1 or len(heads) > 1
     catalog_rows = [_article(row) for row in catalog]
     # Alias points to a concrete version. Only the current supplied version of
     # a product can be reused automatically; older versions remain historical.
@@ -298,7 +299,7 @@ def find_candidates(query, catalog, aliases=()):
                 conflicts.append("retailer_sku_wrong_merchant")
         elif supplied_sku and a.get("retailerArticleId") and _key(a.get("retailerId")) == merchant:
             conflicts.append("different_retailer_sku")
-        if a["versionId"] in matching_alias_versions:
+        if (a["id"], a["versionId"]) in matching_alias_pairs:
             if _key(a.get("retailerId")) in ("", merchant):
                 evidence.append("user_confirmed_retailer_alias_version")
                 score += 70
@@ -336,9 +337,15 @@ def find_candidates(query, catalog, aliases=()):
             continue
         strong = "valid_gtin_exact" in evidence or "retailer_sku_exact" in evidence
         alias_confirmed = "user_confirmed_retailer_alias_version" in evidence
-        if alias_confirmed and len(current_versions.get(a["id"], set())) > 1 and a.get("currentVersionConfirmed") is not True:
-            conflicts.append("stale_or_unresolved_product_version")
-        severe = bool(conflicts)
+        if alias_confirmed and a.get("currentVersionConfirmed") is not True:
+            conflicts.append("current_product_version_not_confirmed")
+        if alias_confirmed and len(current_versions.get(a["id"], set())) > 1:
+            if a.get("currentVersionConfirmed") is not True:
+                conflicts.append("stale_or_unresolved_product_version")
+        uncertain_alias = "current_product_version_not_confirmed" in conflicts
+        review_conflicts = {"current_product_version_not_confirmed",
+                            "stale_or_unresolved_product_version"}
+        severe = any(c not in review_conflicts for c in conflicts)
         if strong and not severe:
             level = "EXACT_SKU"
         elif evidence and not severe:
@@ -346,7 +353,7 @@ def find_candidates(query, catalog, aliases=()):
         else:
             level = "UNKNOWN"
         status = ("REJECTED" if severe else
-                  "AMBIGUOUS" if ambiguous_alias else
+                  "AMBIGUOUS" if ambiguous_alias or uncertain_alias else
                   "CONFIRMED_BY_USER" if alias_confirmed else
                   "SUGGESTED")
         result = {
