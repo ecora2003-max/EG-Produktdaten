@@ -36,6 +36,16 @@ build_price_memory([{receipt,line,article},...]) erstellt deterministisch aus be
 
 as_contract(messageType,payload,createdAt,traceId) setzt den 1.0.0-draft-Umschlag. Die Schema-Tests nutzen das exakte vendorte Contract-JSON (Provenienz: Architekturcommit oben).
 
+## Ergänzung: strengere Identitäts-/Korrektur-Gates
+
+- `find_candidates` verknüpft händlergebundene Aliasbeweise über **(productId, versionId)**, niemals nur über eine mehrfach vorkommende Versionszeichenfolge. Eine bestätigte Altentscheidung wird nur mit ausdrücklich vom App-Katalog belegtem `currentVersionConfirmed=true` als `CONFIRMED_BY_USER` wiedererkannt; ohne aktuellen Versionsnachweis bleibt sie `AMBIGUOUS`. Diese Bestätigung ist ein Befund zur früheren Aliasentscheidung, **kein** Bezahl-/Bestandsnachweis.
+- `apply_memory_correction` akzeptiert keine frei erfundenen `replacement`-Preis-Payloads. Bei `action=REPLACE` muss `event` vollständige, vom App-Adapter aus persistierten bestätigten Quellen gebildete `receipt`, `line`, `article` enthalten. Die Engine baut die neue Beobachtung erneut durch `to_historical_price_observation`, prüft die gleiche Positions-ID und ggf. die exakte Übereinstimmung mit einem zusätzlich gelieferten `replacement`. Bei unbestätigtem Kauf wird die Korrektur abgewiesen. Ein allein übergebenes `replacement` wird nicht übernommen.
+- Kaufbestätigung darf einem bekannten Kaufzeitpunkt nicht zeitlich vorangehen; bei reiner Datumsangabe darf der Bestätigungstag nicht früher als das belegte Kaufdatum sein.
+
+### Bereits geladene Open-Food-Facts-Datensätze (kein zusätzlicher Netzwerkzugriff)
+
+`import_off_snapshot(snapshot, product_id, version_id, retailer_id=None, source=...)` übernimmt eine **vom Haupt-App-OFF-Adapter bereits empfangene** JSON-Produktantwort. `product_id` und `version_id` kommen aus dem Haupt-App-Katalog, nicht aus OFF. `source` enthält mindestens `origin`, `rightsStatus` (`UNVERIFIED` als sichere Voreinstellung), `dataQuality=SOURCED|UNKNOWN`, `observedAt` als ISO-Zeitstempel mit Zone. Eine behauptete bestätigte OFF-Quelle wird zurückgewiesen. Produktname/Barcode werden auf Konsistenz geprüft; Verpackungstexte wie `2x500 g` können als **unbestätigte** Mengenvorschläge übernommen werden (Mengenbasis `UNKNOWN`). Bio wird nur beim expliziten OFF-Label `en:organic` oder entsprechendem Bio-Tag vorgeschlagen; fehlende Kennzeichnung ergibt `null`, niemals `false`. Danach müssen App-Editor und Nutzer Angaben/Kauf gesondert bestätigen.
+
 ## 2. Anschluss an die bestehende Android-App (lesend geprüft am 31.10.2026)
 
 1. RecognitionReader.review(scanId) liefert ReceiptScanView, OCR-Rohtext und ReceiptParser-Vorschläge; RecognitionReader.data()/snapshot() liefert versionierte Alias-/Produktdaten. Gtin.parse aus data.recognition.Identifiers bereits verwenden (UPC/EAN-Prüfung und 14-stelliger Lookup-Key). **Keine** neue Kamera, ZXing- oder ML-Kit-Implementierung.

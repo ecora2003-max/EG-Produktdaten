@@ -211,6 +211,70 @@ class ProductTests(unittest.TestCase):
                 self.assertEqual(out[0]["egProductdaten"]["productId"], expected)
 
 
+
+class OfflineImportTests(unittest.TestCase):
+    @staticmethod
+    def source():
+        return {"origin": "OpenFoodFacts fixture", "observedAt": STAMP,
+                "rightsStatus": "UNVERIFIED", "dataQuality": "SOURCED"}
+
+    def test_off_snapshot_yields_unconfirmed_product(self):
+        x = p.import_off_snapshot({"code": "4006381333931",
+                                   "product": {"product_name_de": "Bio Haferflocken",
+                                               "brands": "GUT & GÜNSTIG",
+                                               "labels_tags": ["en:organic"],
+                                               "quantity": "2x500 g"}},
+                                  "offline-1", "v1", "EDEKA", self.source())
+        self.assertEqual(x["gtin"], "4006381333931")
+        self.assertEqual(x["brandKind"], "PRIVATE_LABEL")
+        self.assertTrue(x["organic"])
+        self.assertEqual(x["quantity"]["amount"], 500)
+        self.assertEqual(x["quantity"]["packageCount"], 2)
+        self.assertEqual(x["quantity"]["basis"], "UNKNOWN")
+        self.assertFalse(x["quantity"]["confirmed"])
+        self.assertEqual(x["importSource"]["rightsStatus"], "UNVERIFIED")
+
+    def test_off_no_bio_label_does_not_mean_nonorganic(self):
+        x = p.import_off_snapshot({"product_name": "Mystery Oat Product",
+                                   "brands": "Unfamiliar brand", "quantity": "1 kg"},
+                                  "offline-2", "v1", None, self.source())
+        self.assertIsNone(x["organic"])
+        self.assertEqual(x["quantity"]["amount"], 1000)
+        self.assertEqual(x["quantity"]["unit"], "g")
+
+    def test_off_no_net_or_drained_assumption(self):
+        x = p.import_off_snapshot({"product_name": "Beans", "quantity": "240 g"},
+                                  "offline-3", "v1", None, self.source())
+        self.assertEqual(x["quantity"]["basis"], "UNKNOWN")
+
+    def test_off_conflicting_barcode_rejected(self):
+        with self.assertRaises(p.InputError):
+            p.import_off_snapshot({"code": "4006381333931", "product":
+                                  {"code": "00012345678905", "product_name": "Oats"}},
+                                  "offline-4", "v1", None, self.source())
+
+    def test_off_invalid_barcode_rejected(self):
+        with self.assertRaises(p.InputError):
+            p.import_off_snapshot({"product_name": "Oats", "code": "4006381333932"},
+                                  "offline-5", "v1", None, self.source())
+
+    def test_off_no_provenance_rejected(self):
+        with self.assertRaises(p.InputError):
+            p.import_off_snapshot({"product_name": "Oats"}, "offline-6", "v1")
+
+    def test_off_cannot_fake_user_confirmation(self):
+        with self.assertRaises(p.InputError):
+            p.import_off_snapshot({"product_name": "Oats"}, "offline-7", "v1", source={
+                "origin": "OpenFoodFacts", "observedAt": STAMP,
+                "rightsStatus": "UNVERIFIED", "dataQuality": "CONFIRMED"})
+
+    def test_off_absent_name_rejected(self):
+        with self.assertRaises(p.InputError):
+            p.import_off_snapshot({"product": {"code": "4006381333931"}},
+                                  "offline-8", "v1", None, self.source())
+
+
+
 class AliasTests(unittest.TestCase):
     def test_explicit_confirmation_and_replay(self):
         a = alias()

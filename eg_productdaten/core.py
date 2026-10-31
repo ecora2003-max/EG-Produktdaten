@@ -147,6 +147,57 @@ def normalize_article(raw, source=None):
     return article
 
 
+
+def import_off_snapshot(snapshot, product_id, version_id, retailer_id=None, source=None):
+    """Map an already obtained OFF record, not a live request.
+
+    All source facts are unconfirmed and caller-owned; no product identity,
+    organic=false, FoodType or gross/net basis is silently invented.
+    """
+    if not isinstance(snapshot, dict):
+        raise InputError("OFF snapshot must be an object")
+    product = snapshot.get("product", snapshot)
+    if not isinstance(product, dict) or not isinstance(product_id, str) or not product_id.strip() \
+            or not isinstance(version_id, str) or not version_id.strip():
+        raise InputError("OFF product and caller-provided stable IDs required")
+    label = product.get("product_name_de") or product.get("product_name")
+    if not isinstance(label, str) or not label.strip():
+        raise InputError("OFF product name missing; manual identification required")
+    gtin = product.get("code") or snapshot.get("code")
+    if product.get("code") and snapshot.get("code"):
+        if gtin_lookup_key(product["code"]) != gtin_lookup_key(snapshot["code"]):
+            raise InputError("OFF product and response barcode disagree")
+    if gtin is not None:
+        gtin = normalize_gtin(gtin)
+    brands = product.get("brands")
+    brand = brands.strip() if isinstance(brands, str) and brands.strip() and "," not in brands else None
+    tags = product.get("labels_tags")
+    tags = tags if isinstance(tags, list) else []
+    known_organic = any(tag in ("en:organic", "de:bio", "de:aus-kontrolliert-biologischem-anbau")
+                        for tag in tags)
+    package = _pack(product.get("quantity"))
+    qty = None
+    if package is not None:
+        count, amount, unit = package
+        qty = {"amount": amount, "unit": unit, "basis": "UNKNOWN", "confirmed": False}
+        if count is not None:
+            qty["packageCount"] = count
+    article = {
+        "id": product_id, "versionId": version_id, "retailerId": retailer_id,
+        "label": label.strip(), "gtin": gtin, "retailerArticleId": None,
+        "foodTypeId": None, "brandName": brand,
+        "brandKind": infer_brand_kind(brand, retailer_id),
+        "organic": True if known_organic else None,
+        "quantity": qty, "attributes": {}
+    }
+    if not isinstance(source, dict):
+        raise InputError("OFF snapshot requires explicit acquisition provenance")
+    if source.get("dataQuality") not in ("SOURCED", "UNKNOWN"):
+        raise InputError("unconfirmed OFF data cannot be marked CONFIRMED")
+    _timestamp(source.get("observedAt"), "source.observedAt")
+    return normalize_article(article, source)
+
+
 def _contract_article(a):
     return {
         "label": a["label"], "foodTypeId": a.get("foodTypeId"),
