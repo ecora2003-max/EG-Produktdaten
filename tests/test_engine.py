@@ -352,6 +352,40 @@ class AliasTests(unittest.TestCase):
         self.assertEqual(len(confirmed), 1)
         self.assertEqual(confirmed[0]["egProductdaten"]["versionId"], "v2")
 
+    def test_two_store_specific_aliases_do_not_collide(self):
+        a = alias(storeId="STORE-A")
+        b = alias(decisionId="A-2", storeId="STORE-B", productId="edeka-bio", versionId="v2")
+        ledger = p.resolve_alias_decision([], a)
+        ledger = p.resolve_alias_decision(ledger, b)
+        self.assertEqual(len(ledger), 2)
+        out_a = p.find_candidates({"retailerId": "EDEKA", "storeId": "STORE-A",
+                                   "rawText": "HAFERFL ZART 0,89"}, catalog(), ledger)
+        out_b = p.find_candidates({"retailerId": "EDEKA", "storeId": "STORE-B",
+                                   "rawText": "HAFERFL ZART 0,89"}, catalog(), ledger)
+        seen_a = [x for x in out_a if "user_confirmed_retailer_alias_version" in x["evidence"]]
+        seen_b = [x for x in out_b if "user_confirmed_retailer_alias_version" in x["evidence"]]
+        self.assertEqual([x["egProductdaten"]["productId"] for x in seen_a], ["edeka-oats"])
+        self.assertEqual([x["egProductdaten"]["productId"] for x in seen_b], ["edeka-bio"])
+
+    def test_store_specific_alias_not_reused_if_store_unknown(self):
+        ledger = p.resolve_alias_decision([], alias(storeId="STORE-A"))
+        out = p.find_candidates({"retailerId": "EDEKA", "rawText": "HAFERFL ZART 0,89"},
+                                [article()], ledger)
+        self.assertFalse(any("user_confirmed_retailer_alias_version" in x["evidence"] for x in out))
+
+    def test_retailer_sku_must_match_store_scope_when_given(self):
+        a = article()
+        a["storeId"] = "STORE-A"
+        out = p.find_candidates({"retailerId": "EDEKA", "storeId": "STORE-B",
+                                 "retailerArticleId": "ED-001"}, [a])
+        self.assertFalse(any("retailer_sku_exact" in x["evidence"] for x in out))
+        without_store = p.find_candidates({"retailerId": "EDEKA",
+                                           "retailerArticleId": "ED-001"}, [a])
+        self.assertFalse(any("retailer_sku_exact" in x["evidence"] for x in without_store))
+        confirmed = p.find_candidates({"retailerId": "EDEKA", "storeId": "STORE-A",
+                                       "retailerArticleId": "ED-001"}, [a])
+        self.assertIn("retailer_sku_exact", confirmed[0]["evidence"])
+
     def test_stale_cas(self):
         ledger = p.resolve_alias_decision([], alias())
         with self.assertRaises(p.ConflictError):

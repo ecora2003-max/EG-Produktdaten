@@ -275,7 +275,11 @@ def _alias_heads(ledger):
         _timestamp(event.get("decidedAt"), "alias.decidedAt")
         if event["action"] != "REVOKE" and (not event.get("productId") or not event.get("versionId")):
             raise InputError("alias event requires a concrete product version")
-        key = (_key(event["retailerId"]), _text(event["rawText"]))
+        if event.get("storeId") is not None and (
+                not isinstance(event["storeId"], str) or not event["storeId"].strip()):
+            raise InputError("storeId must be nonempty when supplied")
+        key = (_key(event["retailerId"]), _text(event["rawText"]),
+               _key(event.get("storeId")))
         if event["decisionId"] in ids:
             raise ConflictError("duplicate alias decisionId in history")
         ids[event["decisionId"]] = key
@@ -312,7 +316,11 @@ def resolve_alias_decision(ledger, decision):
             if old == decision:
                 return deepcopy(ledger)
             raise ConflictError("decisionId replay changed content")
-    key = (_key(decision["retailerId"]), _text(decision["rawText"]))
+    if decision.get("storeId") is not None and (
+            not isinstance(decision["storeId"], str) or not decision["storeId"].strip()):
+        raise InputError("storeId must be nonempty when supplied")
+    key = (_key(decision["retailerId"]), _text(decision["rawText"]),
+           _key(decision.get("storeId")))
     head = _alias_heads(ledger).get(key, [])
     if len(head) > 1:
         raise ConflictError("ambiguous alias heads; manual resolution required")
@@ -343,7 +351,13 @@ def find_candidates(query, catalog, aliases=()):
     words = set(_TOKENS.findall(original))
     hint = _pack(raw)
     bio_hint = bool(re.search(r"(?<!\w)bio(?!\w)|\bökologisch\b", original))
-    heads = _alias_heads(aliases).get((merchant, _text(raw)), [])
+    store = _key(query.get("storeId"))
+    heads = [
+        event for (merchant_key, text_key, store_key), events in _alias_heads(aliases).items()
+        if merchant_key == merchant and text_key == _text(raw)
+        and (not store_key or (store and store_key == store))
+        for event in events
+    ]
     matching_alias_pairs = {(h.get("productId"), h.get("versionId"))
                             for h in heads if h.get("action") != "REVOKE"}
     ambiguous_alias = len(matching_alias_pairs) > 1 or len(heads) > 1
@@ -364,11 +378,13 @@ def find_candidates(query, catalog, aliases=()):
             elif a_gtin:
                 conflicts.append("different_gtin")
         if supplied_sku and _key(a.get("retailerArticleId")) == supplied_sku:
-            if _key(a.get("retailerId")) == merchant:
+            if _key(a.get("retailerId")) != merchant:
+                conflicts.append("retailer_sku_wrong_merchant")
+            elif a.get("storeId") and _key(a["storeId"]) != store:
+                conflicts.append("retailer_sku_store_scope_unverified")
+            else:
                 evidence.append("retailer_sku_exact")
                 score += 90
-            else:
-                conflicts.append("retailer_sku_wrong_merchant")
         elif supplied_sku and a.get("retailerArticleId") and _key(a.get("retailerId")) == merchant:
             conflicts.append("different_retailer_sku")
         if (a["id"], a["versionId"]) in matching_alias_pairs:
