@@ -407,7 +407,7 @@ def to_historical_price_observation(receipt, line, article):
         return fail("MERCHANT_MISMATCH")
     try:
         purchased = _timestamp(receipt["purchaseAt"], "purchaseAt") if receipt.get("purchaseAt") else None
-        _timestamp(receipt["confirmedAt"], "confirmedAt")
+        confirmed_at = _timestamp(receipt["confirmedAt"], "confirmedAt")
         purchase_on = receipt.get("purchasedOn")
         if purchase_on is not None:
             if not isinstance(purchase_on, str) or date.fromisoformat(purchase_on).isoformat() != purchase_on:
@@ -416,6 +416,10 @@ def to_historical_price_observation(receipt, line, article):
             purchase_on = purchased.date().isoformat()
         if purchased is not None and purchased.date().isoformat() != purchase_on:
             return fail("PURCHASE_DATE_CONFLICT")
+        if purchased is not None and confirmed_at < purchased:
+            return fail("CONFIRMATION_PRECEDES_PURCHASE")
+        if purchased is None and confirmed_at.date().isoformat() < purchase_on:
+            return fail("CONFIRMATION_PRECEDES_PURCHASE")
         a = _article(article)
     except (InputError, ValueError):
         return fail("INVALID_DATE_OR_ARTICLE")
@@ -522,10 +526,17 @@ def apply_memory_correction(snapshot, event):
     if previous is None or type(event.get("expectedRevision")) is not int or previous["revision"] != event["expectedRevision"]:
         raise ConflictError("missing or stale observation revision")
     if event["action"] == "REPLACE":
-        replacement = event.get("replacement")
-        if not isinstance(replacement, dict) or replacement.get("observationId") != oid or replacement.get("priceKind") != "HISTORICAL_PAID" or replacement.get("source", {}).get("dataQuality") != "CONFIRMED":
-            raise InputError("replacement must be confirmed historical observation for same purchase line")
-        new_value = deepcopy(replacement)
+        if not all(isinstance(event.get(k), dict) for k in ("receipt", "line", "article")):
+            raise InputError("correction must contain confirmed purchase, line and article evidence")
+        rebuilt = to_historical_price_observation(event["receipt"], event["line"], event["article"])
+        replacement = rebuilt["observation"]
+        if replacement is None:
+            raise InputError("unconfirmed replacement: " + rebuilt["reason"])
+        if replacement["observationId"] != oid:
+            raise ConflictError("correction references another purchase line")
+        if event.get("replacement") is not None and event["replacement"] != replacement:
+            raise ConflictError("replacement differs from rebuilt confirmed purchase")
+        new_value = replacement
     else:
         new_value = None
     entries[oid] = {"revision": previous["revision"] + 1, "observation": new_value}

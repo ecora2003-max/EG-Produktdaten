@@ -487,13 +487,68 @@ class PriceTests(unittest.TestCase):
     def test_correct_link_with_confirmed_replacement(self):
         obs = p.to_historical_price_observation(receipt(), line(), article())["observation"]
         oid = obs["observationId"]
-        repl = copy.deepcopy(obs)
-        repl["article"]["label"] = "corrected synthetic label"
+        corrected_article = article(label="corrected synthetic label")
         event = {"eventId": "e1", "observationId": oid, "action": "REPLACE", "confirmed": True,
-                 "expectedRevision": 1, "decidedAt": STAMP, "replacement": repl}
+                 "expectedRevision": 1, "decidedAt": STAMP, "receipt": receipt(),
+                 "line": line(), "article": corrected_article}
         newer = p.apply_memory_correction(
             {"entries": {oid: {"revision": 1, "observation": obs}}, "events": {}}, event)
         self.assertEqual(newer["entries"][oid]["revision"], 2)
+
+    def test_correction_rejects_raw_unverified_replacement(self):
+        obs = p.to_historical_price_observation(receipt(), line(), article())["observation"]
+        oid = obs["observationId"]
+        state = {"entries": {oid: {"revision": 1, "observation": obs}}, "events": {}}
+        forged = copy.deepcopy(obs)
+        forged["priceCents"] = 0
+        event = {"eventId": "forged", "observationId": oid, "action": "REPLACE",
+                 "confirmed": True, "expectedRevision": 1, "decidedAt": STAMP,
+                 "replacement": forged}
+        with self.assertRaises(p.InputError):
+            p.apply_memory_correction(state, event)
+
+    def test_correction_rejects_unconfirmed_purchase(self):
+        obs = p.to_historical_price_observation(receipt(), line(), article())["observation"]
+        oid = obs["observationId"]
+        state = {"entries": {oid: {"revision": 1, "observation": obs}}, "events": {}}
+        event = {"eventId": "bad", "observationId": oid, "action": "REPLACE",
+                 "confirmed": True, "expectedRevision": 1, "decidedAt": STAMP,
+                 "receipt": receipt(purchaseConfirmed=False), "line": line(),
+                 "article": article()}
+        with self.assertRaises(p.InputError):
+            p.apply_memory_correction(state, event)
+
+    def test_correction_rejects_different_line(self):
+        obs = p.to_historical_price_observation(receipt(), line(), article())["observation"]
+        oid = obs["observationId"]
+        state = {"entries": {oid: {"revision": 1, "observation": obs}}, "events": {}}
+        event = {"eventId": "bad2", "observationId": oid, "action": "REPLACE",
+                 "confirmed": True, "expectedRevision": 1, "decidedAt": STAMP,
+                 "receipt": receipt(), "line": line(lineId="other"), "article": article()}
+        with self.assertRaises(p.ConflictError):
+            p.apply_memory_correction(state, event)
+
+    def test_correction_rejects_forged_payload_mismatch(self):
+        obs = p.to_historical_price_observation(receipt(), line(), article())["observation"]
+        oid = obs["observationId"]
+        state = {"entries": {oid: {"revision": 1, "observation": obs}}, "events": {}}
+        forged = copy.deepcopy(obs)
+        forged["priceCents"] = 0
+        event = {"eventId": "bad3", "observationId": oid, "action": "REPLACE",
+                 "confirmed": True, "expectedRevision": 1, "decidedAt": STAMP,
+                 "receipt": receipt(), "line": line(), "article": article(), "replacement": forged}
+        with self.assertRaises(p.ConflictError):
+            p.apply_memory_correction(state, event)
+
+    def test_confirmation_cannot_precede_purchase(self):
+        r = receipt(confirmedAt="2026-10-28T19:05:00+01:00")
+        result = p.to_historical_price_observation(r, line(), article())
+        self.assertEqual(result["reason"], "CONFIRMATION_PRECEDES_PURCHASE")
+
+    def test_confirmed_day_cannot_precede_known_purchase_day(self):
+        r = receipt(confirmedAt="2026-10-28T19:05:00+01:00", purchaseAt=None, purchasedOn="2026-10-29")
+        result = p.to_historical_price_observation(r, line(), article())
+        self.assertEqual(result["reason"], "CONFIRMATION_PRECEDES_PURCHASE")
 
     def test_memory_builder_pure(self):
         x = {"receipt": receipt(), "line": line(), "article": article()}
