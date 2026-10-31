@@ -27,3 +27,16 @@
 
 ## Nicht akzeptieren
 Händlerunabhängige Kürzel als eindeutige Produktzuordnung; still erfundene EAN/GTIN; frei geschätzte Bonpreise als bezahlt; stilles Überschreiben alter Produktversionen; OCR-Text ohne Bestätigung als Bestand; zweite tatsächliche Ausgabensumme; Verwendung echter Belegdaten in öffentlichem Repo.
+
+
+## Additive Prüfung für Architektur-v1.1-Draft (ADR-014/016/017)
+
+Diese Zusatzkriterien ändern **keines** der bestehenden v1.0-Abnahmekriterien. V1.1 wird ausdrücklich nur als `DRAFT_ADAPTER_TESTED` geprüft; keine selbstständige stabile Architekturfassung.
+
+- Die exakte neue Schema-Blob-SHA muss aus `EG-Architecture/contracts/v1.1` übernommen und geprüft werden; v1.0 bleibt Schema- und Payload-kompatibel, das v1.1-Envelope erfordert **explizite** neue Versions-/Nutzungskontextangabe.
+- Bestätigte persönliche Bonhistorie darf nur `PRIVATE_USER_HISTORY` verwenden; `APP_DISPLAY` in allen Produktdaten-v1.1-Ports fail-closed, **auch bei 0 Kandidaten**; ungeprüfte Bon-OCR und Fremd-/Forschungsdaten niemals als historische bezahlte Preise markieren.
+- `HISTORICAL_PAID` nur aus überprüftem, nicht zurückgenommenem Kauf, passender Positions-/Versions-ID, eindeutigem Warenpreis, Menge, Rabatt und Pfand. Bei altem Vergleichs-Cutoff später bestätigte Informationen vollständig ausschließen. Storno/Korrektur nur über explizite, bestätigte Revisions-/Tombstone-Entscheidung.
+- Menge und Geld für die neuen `unknownNeeds[]`/`packageLines[]` nicht aus Produktnamen ableiten; Produktdaten darf keine `shopping.past.comparison.savingsBasis`- oder `savingsProvenCents`-Aussage erfinden.
+- CI-Nachweis mit separaten gültigen und ungültigen v1.0-/v1.1-Nachrichten plus Modulregression; Testzahlen aus **ausgeführtem** GitHub-Actions-Log, kein behaupteter Android-/Quellenrechts-/Hardware-Nachweis.
+
+Siehe [V11_IMPACT.md](V11_IMPACT.md) für begründete Mapping-Grenzen, [INTEGRATION.md](INTEGRATION.md) für Kotlin-Portierung.

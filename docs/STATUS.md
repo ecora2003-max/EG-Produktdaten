@@ -1,6 +1,18 @@
 # Status und Abnahme — EG-Produktdaten
 
-**Stand:** 31.10.2026. **Fachmodul abgeschlossen: READY_FOR_INTEGRATION (offline verifizierte Referenzengine).** **Nicht INTEGRATED.** Die Android-Portierung, lokale Room-/FoodStore-Einbindung, App-Regression und Hardwaretests sind ausschließlich Aufgabe von Codex.
+**Stand: 31.10.2026 (nach Aktualisierung Chat 1).** **v1.0: READY_FOR_INTEGRATION – offline verifizierter Produktdaten-Fachkern.** **v1.1: DRAFT_ADAPTER_TESTED – opt-in, nicht freigegebene Vertragsprojektion.** **Nicht INTEGRATED.** Android-Kotlin-Port, Room-/FoodStore-Einbindung, Rechteprüfung externer Daten, App-Regression und Hardwaretests liegen ausschließlich bei Codex.
+
+## Neuer Abgleich mit Chat 1 / ADR-014, ADR-016 und ADR-017
+
+- **Aktuelles EG-Architecture-HEAD gelesen:** `5d1fde8c3e6686da8095080fdee1be91b7f7d512`. `contracts/v1` weiterhin `1.0.0-draft` (unverändert), neuer separater `contracts/v1.1`-Stand `1.1.0-draft` mit Schema-Blob **`dca777d219307a90bf3d4dff6189fbf12476c508`**, im eigenen Repository als identischer Blob vendort. Nach ADR-017 neue `unknownNeeds[]`, `packageLines[]` und Pflichtfeld `savingsBasis=MERCHANDISE_ONLY` geprüft, **nicht** durch Produktdaten erfunden oder erzeugt.
+- **Getesteter Produktdaten-Code:** [`1f85b17ad5a112e8aa9cc91c13b0dff4064f5f37`](https://github.com/ecora2003-max/EG-Produktdaten/commit/1f85b17ad5a112e8aa9cc91c13b0dff4064f5f37). [GitHub Actions 41227648824](https://github.com/ecora2003-max/EG-Produktdaten/actions/runs/41227648824), Job `124615045131`: **131/131 Unit- und Vertragstests bestanden, 0 Fehler, 0 Skips**, Python 3.11, `compileall` erfolgreich. Job und Testlog tatsächlich ausgelesen.
+- **Negativtestgetriebene Korrektur:** Erster v1.1-CI-Lauf [41227503810](https://github.com/ecora2003-max/EG-Produktdaten/actions/runs/41227503810) ergab 2 Fehlschläge: `APP_DISPLAY`/ungültiger Kontext wurden bei **leerer Kandidatenliste** nicht abgelehnt. In [`f629162bf0501d1b898a34eff520a3b269f8e6d8`](https://github.com/ecora2003-max/EG-Produktdaten/commit/f629162bf0501d1b898a34eff520a3b269f8e6d8) fail-closed auch vor Matching ohne Treffer behoben; CI [41227557564](https://github.com/ecora2003-max/EG-Produktdaten/actions/runs/41227557564) danach 128 Tests erfolgreich. Letzter Codecommit ergänzt Storno-/Kaufzeit-Gates mit 131 grünen Tests.
+- **Neue Schnittstellen:** `eg_productdaten/v11.py`: `match_v11`, `receipt_proposal_v11`, `historical_purchase_v11`, `historical_snapshot_v11`. Sie sind **rein und offline**, produzieren ausschließlich bisherige Produktdaten-Typen mit expliziter `contractVersion=1.1.0-draft` und `meta.usageContext`. Alle `APP_DISPLAY`-Nutzungen fail-closed; private bestätigte Historie nur `PRIVATE_USER_HISTORY`. Kein Live-Preisdienst, kein Produkt-/Kassen- oder Bestands-Schreibzugriff. `evidence_cutoff_at` verhindert Hindsight; stornierte Käufe erzeugen keine neuen Beobachtungen.
+- **Abnehmervertrag und Rechte:** Vollständiges Feld-/Identitäts-/Mengen-/Quellenrechts-/Kaufhistorie-Mapping und bekannte Grenzen in `docs/V11_IMPACT.md`; App-Adapter-Regeln in `docs/INTEGRATION.md`. ADR-016: gezielte aktuelle reguläre Preise nur bei ALDI Nord, ALDI Süd, REWE und Lidl vorgesehen; Penny, Kaufland, EDEKA und Netto Marken-Discount nur veröffentlichte Angebote. Diese Produktdaten-Engine führt **keine** externen Preisabfragen durch; bestätigte persönliche Bons bleiben händlerunabhängig möglich.
+
+**Reproduzierbar:** `python -m pip install -r requirements-dev.txt && python -m unittest discover -s tests -p 'test_*.py' -v && python -m compileall -q eg_productdaten tests`. Tests nur mit synthetischen Artikel-/Bon-/Kaufdatensätzen; Vertragsprüfung mit `jsonschema.Draft202012Validator` + `FormatChecker`. Keine Live-Quellen, Lizenz-/Android-/Gerätetests behauptet.
+
+## Vorheriger Nachweis / Historie (v1.0)
 
 ## Verifizierter Stand
 
@@ -34,3 +46,11 @@
 5. Die Architektur ist noch `1.0.0-draft`; bei neuer freigegebener Vertragsversion sind Schema- und Integrationsregressionen erneut erforderlich. Ein produktives Daten-/Bestands-/Kaufereignis darf ausschließlich die Haupt-App bestätigen und schreiben.
 
 **Fazit:** Alle **modulspezifischen Offline-Abnahmekriterien** sind anhand der 105 ausgeführten automatisierten Tests einschließlich Vertragstests und dokumentierter Android-Adaptergrenze erfüllt. Keine noch offene Aufgabe liegt im erlaubten Schreibbereich des Produktdaten-Fachmoduls; die verbleibenden Arbeiten sind Integrations- und Freigabegates anderer Eigentümer. Keine direkte Änderung an Architektur, anderen Modulen oder Haupt-App vorgenommen.
+
+
+## Verbleibende Übergabegates
+
+1. **Keine Modulcode-Blockade:** Der selbstständige Offline-Kern sowie die v1.1-Draft-Semantik/Produktdaten-Projektionen sind durch die oben genannten ausführbaren Tests nachgewiesen; der v1.0-Fachkern bleibt READY_FOR_INTEGRATION. Neue Architektur-Revisionen nur nach erneutem Commit-/Schema- und Testvergleich übernehmen.
+2. **Keine v1.1-Stabilfreigabe durch Produktdaten:** v1.1 ist laut Chat 1 weiterhin Entwurf. Die anderen Produzenten und insbesondere Codex müssen `unknownNeeds[]`, gemischte `packageLines[]`, `MERCHANDISE_ONLY`, Rechtegate und Kauf-/Bestands-Side-Effects in ihren eigenen Verantwortungsbereichen nachweisen.
+3. **Codex-only:** Native Kotlin-Portierung, Room-Migration, die zusätzliche Bestätigung der konkreten Verkaufseinheiten/Rabatt-/Pfandzuordnung, sichere Rücknahmen, App-Tests von Bon→Kauf→historischer Preis→Vergleich und Hardware-Tests. Ohne diese nicht INTEGRATED.
+4. **Datenrechte:** Kein `APP_DISPLAY` externer ungeprüfter Katalog-/Preisquellen. Die händlerbezogene Funktionsmatrix ist kein Lizenzbeleg. Keine echten Bonbilder oder private Daten in GitHub/CI.

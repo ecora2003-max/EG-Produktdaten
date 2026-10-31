@@ -28,3 +28,16 @@ Die Engine benötigt zur Laufzeit nur die Python-Standardbibliothek. jsonschema 
 Ein-/Ausgaben: [examples/demo.py](examples/demo.py), [docs/INTEGRATION.md](docs/INTEGRATION.md). Prüfkriterien: [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md). Status: [docs/STATUS.md](docs/STATUS.md).
 
 **Wichtig:** Historische Bonpreise sind keine heutigen Marktpreise. Die Kotlin-Portierung für die bestehende Room-App ist ausdrücklich Teil der späteren Codex-Integration; diese Python-Referenz ist keine direkt ausführbare Android-Bibliothek. Keine unbestätigten Produktpreise, keine persönlichen Bons, keine Live-Quellenrechte.
+
+
+## Neuer Architekturstand: 1.1.0-draft (expliziter Adapter)
+
+Chat 1 hat [ADR-014/016/017](docs/V11_IMPACT.md) und einen separaten **nicht freigegebenen** `1.1.0-draft`-Vertrag veröffentlicht. Der ursprüngliche `1.0.0-draft`-Pfad bleibt unverändert. Der bewusste Opt-in-Adapter `eg_productdaten.v11` produziert nur die bisherigen drei Produktdaten-Nachrichtentypen mit `meta.usageContext`. Schema: `contracts/v1.1/contract.schema.json`, vom Architektur-Blob `dca777d219307a90bf3d4dff6189fbf12476c508` unverändert übernommen.
+
+- `match_v11(...)`: Produktvorschläge und Konflikte, privat oder Forschungsmodus; keine Bestell- oder Kaufwirkung.
+- `receipt_proposal_v11(...)`: ungeprüfte Bonpositionen ausschließlich privat, nie bezahlt.
+- `historical_purchase_v11(...)`: ein privater historischer Preis **nur nach erneuter Prüfung** eines bestätigten, nicht stornierten Kaufs samt Produktversion, Rabatt, Pfand und Menge.
+- `historical_snapshot_v11(..., evidence_cutoff_at=...)`: as-of-gefilterte, idempotente bestätigte Bonhistorie; keine später bestätigten Preise als damaliges Wissen.
+- Alle `APP_DISPLAY`-Ausgaben aus diesen Ports sind gesperrt, unabhängig von vermeintlichen Produkt- oder Händlerrechten; externe Live-Preisanzeige ist hier ausdrücklich nicht implementiert.
+
+Die aktualisierten Tests prüfen beide Vertragsfassungen einschließlich Rechte- und Negativfällen. Der neue v1.1-Adapter ist **DRAFT_ADAPTER_TESTED**, nicht `STABLE` oder `INTEGRATED`. Android/Codex muss den Host-/Room-/UI-Rechtefilter und App-Regression weiterhin selbst nachweisen.
