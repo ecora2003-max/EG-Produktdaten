@@ -1,18 +1,11 @@
-# Verbindlicher Auftrag – Chat 3 / Produktidentifikation und Preisgedächtnis
+# EG-Produktdaten – Fachkern-/Fixture-Referenz
 
-## Rolle und Grenze
-Du entwickelst ein eigenständiges, testbares Produkt zur Erkennung/Verknüpfung von Produktidentitäten, Marken- und Bio-Merkmalen, Händler-SKUs, GTIN und Bontexten sowie zur Umwandlung **bestätigter** Belegpositionen in datierte Preisbeobachtungen.
+**Stand 18.11.2026:** Historischer offline verifizierter Referenzkern für Produktidentität, GTIN/SKU, Bonalias und datierte Preisbeobachtungen. Die aktuelle Kotlin-/Room-/UI-Integration läuft ausschließlich in [Ernaerungsgedaechnis](https://github.com/ecora2003-max/Ernaerungsgedaechnis).
 
-**Einziges Schreibziel:** `ecora2003-max/EG-Produktdaten`. **Nur lesen**, niemals bearbeiten: `EG-Architecture`, alle anderen Modulrepos und das private Hauptrepo `ecora2003-max/Ernaerungsgedaechnis` (vom Nutzer auch „Ernährungsplan“ genannt). Keine GitHub-Issues/PRs/Branches dort verändern. Die Integration schreibt ausschließlich Codex.
+- **Kein separater dauerhafter Entwicklungsauftrag** für „Chat 3“, kein Nacharbeiten historischer Meilensteine, keine eigene Freigabe-/ADR-Abstimmungsrunde. Nur bei gezieltem Auftrag neue Referenzfälle/Tests liefern.
+- Historische `docs/STATUS.md`, `docs/INTEGRATION.md`, `docs/ACCEPTANCE.md` sind Nachschlagewerke; der aktuelle Gesamtstand steht in der Haupt-App unter `docs/NOW.md`.
+- Dateninvarianten: konkreter Artikel und Produktversion, korrekte Händler-/Filialzuordnung, unverwechselbare Varianten/Packungen, mehrdeutige OCR/GTIN/SKU-Matches nicht als bestätigte Fakten buchen; private Bons/Preisbeobachtungen nicht öffentlich veröffentlichen.
+- v1 `1.0.0-draft` bleibt unverändert, v1.1 nur unverbindlicher Draft. Original-Contract-Tests und Python-Referenzcode **erhalten**, keine parallele zweite Android-Datenbank oder OCR-Implementation.
+- Bei ausdrücklich beauftragter Änderung: vorhandene Unit-/Vertragstests ausführen, genaue Änderungen/fehlende Nachweise dokumentieren, keine Fakten oder Rechte aus Modell-/Händlerbehauptungen erfinden.
 
-## Vor Arbeitsbeginn lesen
-`EG-Architecture/README.md`, `docs/MASTER_ARCHITECTURE.md`, `docs/DOMAIN_MODEL.md`, `docs/INTEGRATION_AND_GOVERNANCE.md`, `contracts/v1/`. Optional lesender Blick auf die bestehende App-Bon- und Barcode-Erkennung: **nicht neu implementieren**.
-
-## Verbindliche Qualität
-- **Nach jeder implementierten Funktion und jeder verhaltensändernden Änderung Tests ausführen.** Positiv-, Negativ-, Konflikt-, Null-/Unbekannt-, Duplikat- und Regressionsfälle.
-- Keine automatische Speicherung aus OCR-Vermutungen; bestätigte Aliase mit Händler-/Variantenbindung, Geschichte und Korrekturmöglichkeit.
-- Kein reales Benutzer-/Bon-/Gesundheitsdatum in dieses öffentliche Repo, GitHub Actions oder Beispielpayloads.
-- Ohne nachgewiesene Funktionalität nur `PROTOTYPE`/ `PARTIAL`; `READY_FOR_INTEGRATION` erst nach `docs/ACCEPTANCE.md`. Nachweisen mit Commit, Befehl, Testergebnis. `INTEGRATED` nur Codex.
-- Bei fehlenden oder falschen Feldern im gemeinsamen Vertrag **Änderungsvorschlag im eigenen Repo**, keine direkte Änderung am Architektur-Repo.
-
-Lies `docs/DEVELOPMENT_MANDATE.md`, `docs/ACCEPTANCE.md` und `docs/INTEGRATION.md` vor Umsetzung.
+Kein Schreiben in Haupt-App/andere Repos ohne ausdrücklichen neuen Nutzerauftrag.
