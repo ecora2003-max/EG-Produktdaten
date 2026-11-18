@@ -1,5 +1,7 @@
 # EG-Produktdaten — Produktidentifikation und Preisgedächtnis
 
+> **Status 18.11.2026 – REFERENZ/ARCHIV, keine aktive eigenständige Modulsteuerung.** Aktuelle Android-Entwicklung und Arbeitsaufträge: [Ernaerungsgedaechnis](https://github.com/ecora2003-max/Ernaerungsgedaechnis) (`AGENTS.md`, `docs/NOW.md`). Dieses Repository bewahrt geprüfte Fachlogik, Vertragsdateien, Tests und historische Forschungs-/Integrationsberichte. Alte `AGENTS`-/STATUS-Freigabeschleifen sind überholt; neue Arbeiten hier nur auf konkreten Auftrag.
+
 Offline-Referenzengine für erklärbare Produktkandidaten, händlergebundene Bon-Aliase und historische Preisbeobachtungen ausschließlich aus **bestätigten Käufen**. Keine OCR, Kamera, Cloud, zweite Produktivdatenbank, Bestands- oder Zahlungsbuchung.
 
 Vertrag: [EG-Architecture](https://github.com/ecora2003-max/EG-Architecture), 1.0.0-draft, Commit d22862739bd0e3ef8451ce029e54f7c33ee53e40; Testkopie unter contracts/v1/.
